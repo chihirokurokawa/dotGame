@@ -1,19 +1,22 @@
 // ゲーム設定
-const COLS = 10;
-const ROWS = 20;
-const BLOCK_SIZE = 30;
-const WINNING_SCORE = 100;
+const COLS = 20;
+const ROWS = 40;
+const BLOCK_SIZE = 15;
+const WINNING_SCORE = 30;
 
 // ゲームボードの描画コンテキスト
 const canvas = document.getElementById('game-board');
 const ctx = canvas.getContext('2d');
 
-// スコア表示
+// UI要素
 const scoreElement = document.getElementById('score');
-const levelUpMessage = document.getElementById('level-up-message');
+const stageElement = document.getElementById('stage');
+const gameMessage = document.getElementById('game-message');
 
 let board = [];
 let score = 0;
+let stage = 1;
+let gameInterval; // ゲームループのIDを保持する変数
 
 // テトリミノの形状
 const TETROMINOES = {
@@ -28,13 +31,13 @@ const TETROMINOES = {
 
 // テトリミノの色
 const COLORS = {
-    'I': 'cyan',
-    'O': 'yellow',
-    'T': 'purple',
-    'S': 'green',
-    'Z': 'red',
-    'J': 'blue',
-    'L': 'orange'
+    'I': '#2ab7ca', // ティール
+    'O': '#fed766', // マスタードイエロー
+    'T': '#e05297', // マゼンタ
+    'S': '#99c24d', // ライムグリーン
+    'Z': '#f45b69', // コーラルレッド
+    'J': '#4a4e69', // インディゴ
+    'L': '#f28c28'  // タンジェリン
 };
 
 let currentPiece;
@@ -43,25 +46,40 @@ let currentY;
 
 // ゲームの初期化
 function init() {
+    // 既存のゲームループを停止
+    if (gameInterval) {
+        clearInterval(gameInterval);
+    }
+
     // ボードを空にする
     board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-    
+
+    // スコアとメッセージをリセット
+    score = 0;
+    scoreElement.textContent = score;
+    stageElement.textContent = stage;
+    gameMessage.classList.add('hidden');
+
     // 初期ブロックを配置
     generateInitialBlocks();
 
     // 最初のテトリミノを生成
     spawnNewPiece();
 
-    // ゲームループを開始
-    setInterval(gameLoop, 500); 
+    // ゲームループを開始 (ステージが上がると速くなる)
+    const gameSpeed = 500 - (stage * 25);
+    gameInterval = setInterval(gameLoop, gameSpeed > 100 ? gameSpeed : 100);
 }
 
 // 初期ブロックを生成
 function generateInitialBlocks() {
-    for (let y = Math.floor(ROWS / 2); y < ROWS; y++) {
+    // ステージレベルに応じて壁の高さを変える
+    const startRow = Math.floor(ROWS / 3) - stage;
+    // ボードの下から埋める
+    for (let y = (startRow > 5 ? startRow : 5); y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
-            // 50%の確率でブロックを配置
-            if (Math.random() < 0.5) {
+            // 75%の確率でブロックを配置
+            if (Math.random() < 0.75) {
                 // ランダムな色を選択
                 const colors = Object.values(COLORS);
                 const randomColor = colors[Math.floor(Math.random() * colors.length)];
@@ -103,9 +121,9 @@ function update() {
         spawnNewPiece();
         // ゲームオーバーチェック
         if (checkCollision(currentX, currentY)) {
-            alert("ゲームオーバー");
-            // ゲームをリセット
-            init();
+            gameMessage.textContent = "GAME OVER";
+            gameMessage.classList.remove('hidden');
+            clearInterval(gameInterval);
         }
     }
 }
@@ -114,10 +132,10 @@ function update() {
 function draw() {
     // ボードをクリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // 固定されたブロックを描画
     drawBoard();
-    
+
     // 現在のテトリミノを描画
     drawPiece(currentPiece, currentX, currentY);
 }
@@ -193,7 +211,7 @@ function clearLines() {
             // 新しい空のラインを一番上に追加
             board.unshift(Array(COLS).fill(0));
             // yをインクリメントして、同じラインを再度チェック
-            y++; 
+            y++;
         }
     }
     if (linesCleared > 0) {
@@ -206,9 +224,20 @@ function updateScore(linesCleared) {
     score += linesCleared * 10;
     scoreElement.textContent = score;
     if (score >= WINNING_SCORE) {
-        levelUpMessage.classList.remove('hidden');
-        alert("クリア！おめでとうございます！");
+        nextStage();
     }
+}
+
+// 次のステージへ
+function nextStage() {
+    stage++;
+    gameMessage.textContent = `STAGE ${stage}`;
+    gameMessage.classList.remove('hidden');
+    clearInterval(gameInterval);
+
+    setTimeout(() => {
+        init();
+    }, 2000); // 2秒待ってから次のステージを開始
 }
 
 // キーボード操作
@@ -242,7 +271,7 @@ document.addEventListener('keydown', (e) => {
 function rotatePiece() {
     const shape = currentPiece.shape;
     const newShape = shape[0].map((_, colIndex) => shape.map(row => row[colIndex]).reverse());
-    
+
     if (!checkCollision(currentX, currentY, newShape)) {
         currentPiece.shape = newShape;
     } else {
@@ -251,7 +280,7 @@ function rotatePiece() {
         if (!checkCollision(currentX + 1, currentY, newShape)) {
             currentX++;
             currentPiece.shape = newShape;
-        } 
+        }
         // 左に1つずらして試す
         else if (!checkCollision(currentX - 1, currentY, newShape)) {
             currentX--;
@@ -259,7 +288,6 @@ function rotatePiece() {
         }
     }
 }
-
 
 // ゲーム開始
 init();
